@@ -1,14 +1,12 @@
 # Terraform VPC Networking
 The library includes a terraform design for provisioning AWS VPC networking.
 
-Quick start
-```
-git clone https://github.com/leonli/terraform-vpc-networking
-```
+### 安装相关软件
+git clone https://github.com/mingdche/web-app-on-eks-workshop 
 
-```
-cd terraform-vpc-networking
-```
+cd web-app-on-eks-workshop
+
+./init.sh
 
 ```
 cat > terraform.tfvars <<EOF
