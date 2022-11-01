@@ -1,29 +1,30 @@
-# web-app-on-eks-workshop
-Web Application Hosts on EKS Workshop
-保存以及简化Web Application Hosts on EKS Workshop的一些脚本，以及通过自动化脚本简化Workshop的步骤，让体验用户获得更多EKS的直观感受。
-https://catalog.us-east-1.prod.workshops.aws/workshops/a1101fcc-c7cf-4dd5-98c4-f599a65056d5/en-US/introduction
+# Terraform VPC Networking
+The library includes a terraform design for provisioning AWS VPC networking.
 
-## 设置操作环境
-### 部署Cloud9
+Quick start
+```
+git clone https://github.com/leonli/terraform-vpc-networking
+```
 
-### 安装相关软件
-git clone https://github.com/mingdche/web-app-on-eks-workshop
-cd web-app-on-eks-workshop
-./init.sh
+```
+cd terraform-vpc-networking
+```
 
-在脚本中，我们会安装kubectl, eksctl, helm客户端，并安装了Terraform
+```
+cat > terraform.tfvars <<EOF
+//AWS 
+region      = "ap-southeast-1"
+environment = "k8s"
 
-## 第一步：创建EKS集群所需的VPC网络
+/* module networking */
+vpc_cidr             = "10.0.0.0/16"
+public_subnets_cidr  = ["10.0.1.0/24", "10.0.2.0/24", "10.0.3.0/24"] //List of Public subnet cidr range
+private_subnets_cidr = ["10.0.11.0/24", "10.0.12.0/24", "10.0.13.0/24"] //List of private subnet cidr range
+EOF
+```
 
-## 第二步：创建EKS集群
-
-## 第三步：配置CloudWatch监控EKS集群的各项指标
-
-## 第三步：创建NodeJS应用并将其部署到EKS集群
-
-## 第四步：通过AWS Application Load Balancer将应用服务发布至互联网
-
-## 第五步：配置Autoscaling扩展应用程序
-
-## 第六步：用FluentBit将日志收集到CloudWatchInsights
-
+```
+terraform init
+terraform plan
+terraform apply
+```
