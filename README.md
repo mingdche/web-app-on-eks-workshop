@@ -7,8 +7,10 @@ https://catalog.us-east-1.prod.workshops.aws/workshops/a1101fcc-c7cf-4dd5-98c4-f
 ### 部署Cloud9
 
 ### 安装相关软件
-git clone https://github.com/mingdche/web-app-on-eks-workshop
+git clone https://github.com/mingdche/web-app-on-eks-workshop 
+
 cd web-app-on-eks-workshop
+
 ./init.sh
 
 在脚本中，我们会安装kubectl, eksctl, helm客户端，并安装了Terraform
