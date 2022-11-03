@@ -25,7 +25,7 @@ kind: ClusterConfig
 metadata:
   name: web-host-on-eks
   region: ap-southeast-1 # Specify the aws region
-  version: "1.20"
+  version: "1.24"
 privateCluster: # Allows configuring a fully-private cluster in which no node has outbound internet access, and private access to AWS services is enabled via VPC endpoints
   enabled: true
   additionalEndpointServices: # specifies additional endpoint services that must be enabled for private access. Valid entries are: "cloudformation", "autoscaling", "logs".
