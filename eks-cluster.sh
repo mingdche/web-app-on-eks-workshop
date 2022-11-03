@@ -1,3 +1,5 @@
+#!/bin/sh
+
 # export VPC
 export VPC_ID=$(terraform output -json | jq -r .vpc_id.value)
 # export private subnets
