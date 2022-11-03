@@ -24,3 +24,5 @@ ssh-keygen
 
 echo "Creating EKS cluster"
 eksctl create cluster -f eks-cluster.yaml
+
+echo "Creating EKS cluster"
