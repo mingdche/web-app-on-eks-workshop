@@ -16,3 +16,13 @@ data "aws_eks_cluster" "cluster" {
 data "aws_eks_cluster_auth" "this" {
   name = module.eks_blueprints.eks_cluster_id
 }
+
+data "kubectl_path_documents" "karpenter_provisioners" {
+  pattern = "${path.module}/kubernetes/karpenter/*"
+  vars = {
+    azs                     = join(",", local.azs)
+    iam-instance-profile-id = "${local.name}-${local.node_group_name}"
+    eks-cluster-id          = local.name
+    eks-vpc_name            = local.name
+  }
+}

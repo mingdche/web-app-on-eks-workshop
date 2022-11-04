@@ -20,6 +20,9 @@ provider "kubectl" {
   token                  = data.aws_eks_cluster_auth.this.token
 }
 
+
+
+
 module "eks_blueprints" {
   source = "github.com/aws-ia/terraform-aws-eks-blueprints?ref=v4.12.2"
 
@@ -39,6 +42,15 @@ module "eks_blueprints" {
       rolearn  = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/eksworkshop-admin"
       username = "ops-role" # The user name within Kubernetes to map to the IAM role
       groups   = ["system:masters"] # A list of groups within Kubernetes to which the role is mapped; Checkout K8s Role and Rolebindings
+    }
+  ]
+
+  #List of map_users
+  map_users = [
+    {
+      rolearn = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:user/admin-user"
+      username = "admin-user"
+      groups = ["system:masters"]
     }
   ]
 
@@ -129,4 +141,27 @@ module "vpc" {
   }
 
     tags = local.tags
+}
+
+
+module "eks_blueprints_kubernetes_addons" {
+  source = "github.com/aws-ia/terraform-aws-eks-blueprints//modules/kubernetes-addons?ref=v4.12.2"
+
+
+  cluster_id                    = data.aws_eks_cluster.cluster.name
+
+  # EKS Addons
+  enable_amazon_eks_aws_ebs_csi_driver  = true
+  enable_amazon_eks_coredns             = true
+  enable_amazon_eks_kube_proxy          = true
+  enable_amazon_eks_vpc_cni             = true
+
+}
+
+
+resource "kubectl_manifest" "karpenter_provisioner" {
+  for_each  = toset(data.kubectl_path_documents.karpenter_provisioners.documents)
+  yaml_body = each.value
+
+  depends_on = [module.eks_blueprints_kubernetes_addons]
 }
