@@ -152,7 +152,7 @@ module "eks_blueprints_kubernetes_addons" {
   enable_amazon_eks_coredns             = true
   enable_amazon_eks_kube_proxy          = true
   enable_amazon_eks_vpc_cni             = true
-
+  depends_on = [module.eks_blueprints.managed_node_groups]
 }
 
 
