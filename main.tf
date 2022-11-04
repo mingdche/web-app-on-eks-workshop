@@ -48,7 +48,7 @@ module "eks_blueprints" {
   #List of map_users
   map_users = [
     {
-      rolearn = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:user/admin-user"
+      userarn = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:user/admin-user"
       username = "admin-user"
       groups = ["system:masters"]
     }
