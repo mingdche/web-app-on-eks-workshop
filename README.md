@@ -14,7 +14,7 @@ git clone https://github.com/mingdche/web-app-on-eks-workshop
 cd web-app-on-eks-workshop
 
 
-./tools-init.sh
+./init.sh
 ```
 
 以上命令为我们安装了以下软件：`kubectl`, `eksctl`, `helm`客户端，并安装了`Terraform`
