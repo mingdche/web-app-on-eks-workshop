@@ -23,6 +23,7 @@ provider "kubectl" {
 
 
 
+
 module "eks_blueprints" {
   source = "github.com/aws-ia/terraform-aws-eks-blueprints?ref=v4.12.2"
 
@@ -152,6 +153,7 @@ module "eks_blueprints_kubernetes_addons" {
   enable_amazon_eks_coredns             = true
   enable_amazon_eks_kube_proxy          = true
   enable_amazon_eks_vpc_cni             = true
+  enable_aws_load_balancer_controller   = true
   enable_aws_cloudwatch_metrics         = true
   depends_on = [module.eks_blueprints.managed_node_groups]
 }
