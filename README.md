@@ -270,10 +270,14 @@ echo "http://$(kubectl get ing -n front-end --output=json | jq -r .items[].statu
 ```
 
 # 体验EKS的自动扩展功能
-
+我们通过watch命令监控pod、hpa以及node的变化
+### 监控Pod的数量变化
 Cluster AutoScaler
 
-Kapenter？
+
+
+把他们放在一起直观感受一下
+
 
 
 # 通过FluentBit收集K8s日志以及应用日志
