@@ -1,12 +1,12 @@
 # 将Web应用运行于EKS
 本实验活动通过动手实践的方式帮助您了解EKS，在本次实验活动中您将体验到如下：
 1. 通过terraform创建EKS集群
-3. 配置EKS的监控和观测功能
-4. 在EKS上部署简单的Web应用
-5. 体验EKS的自动扩展功能
+3. 配置监控和观测功能
+4. 部署简单的Web应用
+5. 配置自动扩展功能
 6. 通过FluentBit收集K8s日志以及应用日志
 
-# 准备活动
+# 准备工作
 ### 安装相关软件
 ```bash
 git clone https://github.com/mingdche/web-app-on-eks-workshop 
@@ -18,9 +18,8 @@ cd web-app-on-eks-workshop
 
 以上命令为我们安装了以下软件：`kubectl`, `eksctl`, `helm`客户端，并安装了`Terraform` 并配置了后续脚本命令所需的环境变量 `AWS_REGION`，`ACCOUNT_ID` 
 
-### 创建VPC
-我们创建一个独立的VPC，将EKS集群运行其中
-
+# 安装EKS集群
+执行以下命令将为我们在一个新创的独立VPC中创建一个EKS集群，在main.tf文件中的vpc模块，我们可以看到VPC的相关配置
 ```bash
 terraform init
 
@@ -29,19 +28,69 @@ terraform plan
 terraform apply --auto-approve
 ```
 
-# 安装EKS集群
-
-
-
 # 配置EKS的监控和观测功能
+将以下配置添加到模块eks_blueprints_kubernetes_addons中
 
+enable_aws_cloudwatch_metrics         = true
+
+然后执行以下语句，它会更新集群的配置，为我们添加EKS的监控和观测功能
+```bash
+terraform init
+
+terraform plan
+
+terraform apply --auto-approve
+```
 
 # 在EKS上部署简单的Web应用
-## 将应用打包成为Docker镜像
+### 将应用打包成为Docker镜像
+```bash
+curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.34.0/install.sh | bash
+```
+
+```bash
+. ~/.nvm/nvm.sh
+```
+
+```bash
+nvm install --lts
+```
+
+```bash
+mkdir app && cd app
+```
 
 
+```bash
+npx express-generator
+```
 
-## 将应用镜像推送到ECR私有镜像仓库
+将以上应用通过Dockerfile打包成一个Docker镜像
+
+```bash
+cat > /home/ec2-user/environment/web-app-on-eks-workshop/app/Dockerfile <<EOF
+FROM node:14
+
+# Install app dependencies
+# A wildcard is used to ensure both package.json AND package-lock.json are copied
+# where available (npm@5+)
+COPY package*.json ./
+
+RUN npm install
+# If you are building your code for production
+# RUN npm ci --only=production
+
+# Bundle app source
+COPY . .
+
+EXPOSE 3000
+CMD [ "node", "./bin/www" ]
+EOF
+```
+
+
+### 将应用镜像推送到ECR私有镜像仓库
+
 1. 登录ECR镜像仓库
 ```bash
 aws ecr get-login-password --region ${AWS_REGION} | docker login --username AWS --password-stdin ${ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com
@@ -58,13 +107,13 @@ aws ecr create-repository \
 docker tag front-end:latest ${ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/front-end
 ```
 
-4. 将镜像push到镜像仓库web-app-repo
+4. 将镜像push到镜像仓库
 ```bash
 docker push ${ACCOUNT_ID}.dkr.ecr.ap-southeast-1.amazonaws.com/front-end
 ```
 
 5. 部署应用
-生成部署文件
+执行以下命令，它将在/home/ec2-user/environment/web-app-on-eks-workshop/app目录下生成deploy.yaml文件
 ```bash
 cat > /home/ec2-user/environment/web-app-on-eks-workshop/app/deploy.yaml <<EOF
 apiVersion: v1
@@ -138,17 +187,19 @@ kubectl apply -f deploy.yaml
 kubectl get pods -n front-end
 ```
 
-## 将应用曝露在互联网上
+### 将应用曝露在互联网上
 在上述步骤中，我们创建了名为front-end-service的服务，仅创建服务还不够，为了让互联网上的流量能够访问到我们刚才部署的服务，我们需要部署aws-load-balancer-controller.
 
-我们将使用Helm来完成这些工作
+我们在main.tf文件的module "eks_blueprints_kubernetes_addons" 添加一下语句
+enable_aws_load_balancer_controller   = true
+并执行
 ```bash
-helm repo add eks https://aws.github.io/eks-charts
-
-kubectl apply -k "github.com/aws/eks-charts/stable/aws-load-balancer-controller//crds?ref=master"
+terraform init
+terraform apply --auto-approve
 ```
 
-export 公共子网的子网ID
+
+export 公共子网的子网ID, 这些子网ID在创建ingress的时候有用
 ```bash
 export PUBLIC_SUBNETS_ID_A=$(aws ec2 describe-subnets --filters "Name=tag:Name,Values=web-app-on-eks-workshop-public-${AWS_REGION}a" | jq -r .Subnets[].SubnetId)
 export PUBLIC_SUBNETS_ID_B=$(aws ec2 describe-subnets --filters "Name=tag:Name,Values=web-app-on-eks-workshop-public-${AWS_REGION}b" | jq -r .Subnets[].SubnetId)
@@ -181,6 +232,21 @@ spec:
                 port:
                   number: 3000
 EOF
+```
+执行以下语句创建ingress对象
+```bash
+kubectl apply -f ingress.yaml
+```
+
+执行下面语句将显示我们创建的ingress对象
+
+```bash
+kubectl get ing -n front-end
+```
+
+打印出ALB的地址，通过该地址访问应用
+```bash
+echo "http://$(kubectl get ing -n front-end --output=json | jq -r .items[].status.loadBalancer.ingress[].hostname)"
 ```
 
 # 体验EKS的自动扩展功能

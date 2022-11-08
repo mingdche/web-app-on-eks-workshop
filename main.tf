@@ -148,6 +148,7 @@ module "vpc" {
 module "eks_blueprints_kubernetes_addons" {
   source = "github.com/aws-ia/terraform-aws-eks-blueprints//modules/kubernetes-addons?ref=v4.12.2"
   eks_cluster_id = module.eks_blueprints.eks_cluster_id
+  
   # EKS Addons
   enable_amazon_eks_aws_ebs_csi_driver  = true
   enable_amazon_eks_coredns             = true
