@@ -20,10 +20,6 @@ provider "kubectl" {
   token                  = data.aws_eks_cluster_auth.this.token
 }
 
-
-
-
-
 module "eks_blueprints" {
   source = "github.com/aws-ia/terraform-aws-eks-blueprints?ref=v4.12.2"
 
@@ -97,7 +93,7 @@ module "eks_blueprints" {
 
   # EKS MANAGED NODE GROUPS
   managed_node_groups = {
-    mg_5 = {
+    mg_t3 = {
       node_group_name = local.node_group_name
       instance_types  = ["t3.small"]
       subnet_ids      = module.vpc.private_subnets
