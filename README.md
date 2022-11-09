@@ -316,11 +316,16 @@ watch kubectl get hpa -n front-end
 ab -c 500 -n 30000 http://$(kubectl get ing -n front-end --output=json | jq -r .items[].status.loadBalancer.ingress[].hostname)/
 ```
 
-可以看出随着流量的增加，HPA的指标也在变化，随着CPU利用率的增加
+可以看出随着流量的增加，HPA的指标也在变化，随着HPA中CPU利用率的增加，Pod的数量也在增加
 
 ![alt text](terminals.png "Title")
 
-### 安装Cluster Auto Scaler
+### 安装Kapenter
+在上面的例子中，我们可以看到随着流量的持续加压，HPA会持续创建Pod，由于Node的数量有限，有些Pod处于Pending状态，这时候我们希望集群能够做到Node的自动扩展，Karpenter可以帮我们做到这一点。
+
+
+
+
 
 
 

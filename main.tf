@@ -20,13 +20,6 @@ provider "kubectl" {
   token                  = data.aws_eks_cluster_auth.this.token
 }
 
-resource "kubectl_manifest" "karpenter_provisioner" {
-  for_each  = toset(data.kubectl_path_documents.karpenter_provisioners.documents)
-  yaml_body = each.value
-
-  depends_on = [module.eks_blueprints_kubernetes_addons]
-}
-
 module "eks_blueprints" {
   source = "github.com/aws-ia/terraform-aws-eks-blueprints?ref=v4.12.2"
 
@@ -159,6 +152,5 @@ module "eks_blueprints_kubernetes_addons" {
   enable_amazon_eks_vpc_cni             = true
   enable_aws_load_balancer_controller   = true
   enable_aws_cloudwatch_metrics         = true
-  enable_karpenter                      = true
   depends_on = [module.eks_blueprints.managed_node_groups]
 }
