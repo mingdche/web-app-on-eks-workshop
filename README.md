@@ -283,6 +283,7 @@ echo "http://$(kubectl get ing -n front-end --output=json | jq -r .items[].statu
 ```
 
 # 体验EKS的自动扩展功能
+### Pod的自动扩展
 现在回到Cloud9工作区，我们通过watch命令监控pod、hpa以及node的变化。为了观测pod的变化以及node的变化，我们在一个Cloud9页面打开4个命令终端，分别输入一下命令：
 
 1. 监控Pod的数量变化
@@ -304,8 +305,13 @@ watch kubectl get hpa -n front-end
 ```bash
 ab -c 500 -n 30000 http://$(kubectl get ing -n front-end --output=json | jq -r .items[].status.loadBalancer.ingress[].hostname)/
 ```
+![alt text](terminals.png "Title")
+
+
 
 ### 安装Cluster Auto Scaler
+
+
 
 
 # 通过FluentBit收集K8s日志以及应用日志
