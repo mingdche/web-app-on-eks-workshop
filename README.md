@@ -28,6 +28,8 @@ terraform plan
 
 terraform apply --auto-approve
 ```
+集群创建大约花费15分钟
+
 ### 2. 访问刚才创建的集群
 部署完成后，在命令的输出中可以看到类似于
 configure_kubectl = "aws eks --region ap-southeast-1 update-kubeconfig --name web-app-on-eks-workshop"的命令
@@ -84,10 +86,9 @@ mkdir app && cd app
 npx express-generator
 ```
 
-将以上应用通过Dockerfile打包成一个Docker镜像
-
+将以上应用通过Dockerfile打包成一个Docker镜像，在app目录下执行以下语句创建Dockerfile文件
 ```bash
-cat > /home/ec2-user/environment/web-app-on-eks-workshop/app/Dockerfile <<EOF
+cat > Dockerfile <<EOF
 FROM node:14
 
 # Install app dependencies
@@ -107,6 +108,17 @@ CMD [ "node", "./bin/www" ]
 EOF
 ```
 
+打包Docker镜像
+
+```bash
+docker build -t front-end .
+```
+
+检查一下新建的Docker镜像
+
+```bash
+docker images
+```
 
 ### 2. 将应用镜像推送到ECR私有镜像仓库
 
@@ -132,9 +144,9 @@ docker push ${ACCOUNT_ID}.dkr.ecr.ap-southeast-1.amazonaws.com/front-end
 ```
 
 5. 部署应用
-执行以下命令，它将在/home/ec2-user/environment/web-app-on-eks-workshop/app目录下生成deploy.yaml文件
+在app目录下执行以下命令，它将生成deploy.yaml文件
 ```bash
-cat > /home/ec2-user/environment/web-app-on-eks-workshop/app/deploy.yaml <<EOF
+cat > deploy.yaml <<EOF
 apiVersion: v1
 kind: Namespace # create the namespace for this application
 metadata:
@@ -228,8 +240,9 @@ export PUBLIC_SUBNETS_ID_C=$(aws ec2 describe-subnets --filters "Name=tag:Name,V
 ```
 
 3. 创建ingress配置文件
+在app目录执行一下命令将会在app目录生成ingress.yaml文件
 ```bash
-cat > /home/ec2-user/environment/web-app-on-eks-workshop/app/ingress.yaml <<EOF
+cat > ingress.yaml <<EOF
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
@@ -264,20 +277,35 @@ kubectl apply -f ingress.yaml
 kubectl get ing -n front-end
 ```
 
-5. 打印出ALB的地址，通过该地址访问应用
+5. 打印出ALB的地址，通过该地址访问应用（域名生效需要时间，请耐心等待）
 ```bash
 echo "http://$(kubectl get ing -n front-end --output=json | jq -r .items[].status.loadBalancer.ingress[].hostname)"
 ```
 
 # 体验EKS的自动扩展功能
-我们通过watch命令监控pod、hpa以及node的变化
-### 监控Pod的数量变化
-Cluster AutoScaler
+现在回到Cloud9工作区，我们通过watch命令监控pod、hpa以及node的变化。为了观测pod的变化以及node的变化，我们在一个Cloud9页面打开4个命令终端，分别输入一下命令：
 
+1. 监控Pod的数量变化
+```bash
+watch kubectl get pods -n front-end
+```
 
+2. 监控Node的数量变化
+```bash
+watch kubectl get node
+```
 
-把他们放在一起直观感受一下
+3. 监控HPA
+```bash
+watch kubectl get hpa -n front-end
+```
 
+4. 执行压力测试
+```bash
+ab -c 500 -n 30000 http://$(kubectl get ing -n front-end --output=json | jq -r .items[].status.loadBalancer.ingress[].hostname)/
+```
+
+### 安装Cluster Auto Scaler
 
 
 # 通过FluentBit收集K8s日志以及应用日志
