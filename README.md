@@ -177,20 +177,6 @@ spec:
             requests:
               cpu: 250m
 ---
-apiVersion: autoscaling/v1
-kind: HorizontalPodAutoscaler
-metadata:
-  name: front-end-hpa
-  namespace: front-end
-spec:
-  scaleTargetRef:
-    apiVersion: apps/v1
-    kind: Deployment
-    name: front-end-deployment
-  minReplicas: 1 
-  maxReplicas: 100
-  targetCPUUtilizationPercentage: 10 # define the replicas range and the scaling policy for the deployment
----
 apiVersion: v1
 kind: Service
 metadata:
@@ -208,7 +194,8 @@ spec:
   type: NodePort # expose the service as NodePort type so that ALB can use it later.
 EOF
 ```
-通过以下命令创建`front-end`命名空间、`front-hpa`HPA、`front-end-service`服务。 
+通过以下命令创建`front-end`命名空间、`front-end`部署以及`front-end-service`服务
+
 ```bash
 kubectl apply -f deploy.yaml
 ```
@@ -284,32 +271,59 @@ echo "http://$(kubectl get ing -n front-end --output=json | jq -r .items[].statu
 
 # 体验EKS的自动扩展功能
 ### Pod的自动扩展
-现在回到Cloud9工作区，我们通过watch命令监控pod、hpa以及node的变化。为了观测pod的变化以及node的变化，我们在一个Cloud9页面打开4个命令终端，分别输入一下命令：
+为了让HPA获取到Pod的指标实现自动扩容的目的，我们必须首先安装metrics server
+```bash
+kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml
+```
+
+然后部署HPA
+```bash
+cat > front-end-hpa.yaml <<EOF
+apiVersion: autoscaling/v1
+kind: HorizontalPodAutoscaler
+metadata:
+  name: front-end-hpa
+  namespace: front-end
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: front-end-deployment
+  minReplicas: 1 
+  maxReplicas: 100
+  targetCPUUtilizationPercentage: 10 # define the replicas range and the scaling policy for the deployment
+EOF
+```
+
+```bash
+kubectl apply -f front-end-hpa.yaml
+```
+
+为了观测pod的变化以及hpa的变化，我们在一个Cloud9页面打开3个命令终端，分别输入一下命令：
 
 1. 监控Pod的数量变化
 ```bash
 watch kubectl get pods -n front-end
 ```
 
-2. 监控Node的数量变化
-```bash
-watch kubectl get node
-```
-
-3. 监控HPA
+2. 监控HPA
 ```bash
 watch kubectl get hpa -n front-end
 ```
 
-4. 执行压力测试
+3. 执行压力测试
 ```bash
 ab -c 500 -n 30000 http://$(kubectl get ing -n front-end --output=json | jq -r .items[].status.loadBalancer.ingress[].hostname)/
 ```
+
+可以看出随着流量的增加，HPA的指标也在变化，随着CPU利用率的增加
+
 ![alt text](terminals.png "Title")
 
-
-
 ### 安装Cluster Auto Scaler
+
+
+
 
 
 
