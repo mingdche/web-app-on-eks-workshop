@@ -183,12 +183,12 @@ aws ecr create-repository \
 ```
 ### 3. 给Docker打标签
 ```bash
-docker tag front-end:latest ${ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/front-end
+docker tag front-end:latest ${ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/front-end:latest
 ```
 
 ### 4. 将镜像push到镜像仓库
 ```bash
-docker push ${ACCOUNT_ID}.dkr.ecr.ap-southeast-1.amazonaws.com/front-end
+docker push ${ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/front-end:latest
 ```
 
 ### 5. 部署应用
@@ -216,7 +216,7 @@ spec:
     spec:
       containers:
       - name: front-end
-        image: ${ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/front-end # specify your ECR repository
+        image: ${ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/front-end:latest # specify your ECR repository
         ports:
         - containerPort: 3000 
         resources:
