@@ -131,7 +131,7 @@ mkdir app && cd app
 
 
 ```bash
-npx express-generator
+npx express-generator # press y
 ```
 
 将以上应用通过Dockerfile打包成一个Docker镜像，在app目录下执行以下语句创建Dockerfile文件
@@ -216,7 +216,7 @@ spec:
     spec:
       containers:
       - name: front-end
-        image: ${ACCOUNT_ID}.dkr.ecr.ap-southeast-1.amazonaws.com/front-end # specify your ECR repository
+        image: ${ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/front-end # specify your ECR repository
         ports:
         - containerPort: 3000 
         resources:
@@ -270,8 +270,10 @@ aws iam create-policy \
 ```
 #### 2. 创建IRSA
 ```bash
+eksctl utils associate-iam-oidc-provider --region=us-east-1 --cluster=eks-lab --approve
+
 eksctl create iamserviceaccount \
-  --cluster=my-cluster \
+  --cluster=eks-lab \
   --namespace=kube-system \
   --name=aws-load-balancer-controller \
   --role-name "AmazonEKSLoadBalancerControllerRole" \
@@ -288,7 +290,7 @@ helm repo update
 
 helm install aws-load-balancer-controller eks/aws-load-balancer-controller \
   -n kube-system \
-  --set clusterName=my-cluster \
+  --set clusterName=eks-lab \
   --set serviceAccount.create=false \
   --set serviceAccount.name=aws-load-balancer-controller 
 ```
