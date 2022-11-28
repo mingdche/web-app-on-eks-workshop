@@ -1,13 +1,16 @@
 # 将Web应用运行于EKS
 本实验活动通过动手实践的方式帮助您了解EKS，您将体验到如下：
-1. 通过terraform创建EKS集群
-3. 配置监控和观测功能
-4. 部署简单的Web应用
-5. 配置自动扩展功能
+1. 通过eksctl创建EKS集群
+3. 发布Web饮用
+4. 配置自动扩展功能
+5. EKS集群监控
 6. 通过FluentBit收集K8s日志以及应用日志
 
 # 准备工作
-### 安装相关软件
+## Cloud9创建及配置
+
+
+## 安装相关软件
 ```bash
 git clone https://github.com/mingdche/web-app-on-eks-workshop 
 
@@ -18,53 +21,52 @@ cd web-app-on-eks-workshop
 
 以上命令为我们安装了以下软件：`kubectl`, `eksctl`, `helm`客户端，并安装了`Terraform` 并配置了后续脚本命令所需的环境变量 `AWS_REGION`，`ACCOUNT_ID` 
 
-# 安装EKS集群
-### 1. 安装
-执行以下命令将为我们在一个新创的独立VPC中创建一个EKS集群，在main.tf文件中的vpc模块，我们可以看到VPC的相关配置
+# 创建EKS集群
+## 创建EKS集群
+获取当前Region:
 ```bash
-terraform init
 
-terraform plan
+REGION=`curl http://169.254.169.254/latest/dynamic/instance-identity/document|grep region|awk -F\" '{print $4}'`
 
-terraform apply --auto-approve
 ```
-集群创建大约花费15分钟
+使用以下命令，通过eksctl创建一个EKS集群：
 
-### 2. 访问刚才创建的集群
-部署完成后，在命令的输出中可以看到类似于
-configure_kubectl = "aws eks --region ap-southeast-1 update-kubeconfig --name web-app-on-eks-workshop"的命令
-
-执行该命令就可以通过kubectl访问集群
 ```bash
-aws eks --region ap-southeast-1 update-kubeconfig --name web-app-on-eks-workshop
+cat > /home/ec2-user/environment/eks-cluster.yaml <<EOF
+apiVersion: eksctl.io/v1alpha5
+kind: ClusterConfig
+
+metadata:
+  name: eks-lab
+  region: ${REGION}
+
+managedNodeGroups:
+  - name: managed-ng-1
+    minSize: 2
+    maxSize: 4
+    desiredCapacity: 2
+    volumeSize: 20
+    iam:
+      withAddonPolicies:
+        externalDNS: true
+        certManager: true
+        ebs: true
+EOF
 ```
+```bash
+eksctl create cluster -f eks-cluster.yaml
+```
+等待大概15分钟左右，集群创建完成。
+
+## 访问刚才创建的集群
 
 您可以运行kubectl get nodes以验证是否能正常访问集群
 ```bash
 kubectl get nodes
 ```
 
-# 配置EKS的监控和观测功能
-### 配置Addon
-将以下配置添加到模块eks_blueprints_kubernetes_addons中
-
-enable_aws_cloudwatch_metrics         = true
-
-然后执行以下语句，它会更新集群的配置，为我们添加EKS的监控和观测功能
-```bash
-terraform init
-
-terraform plan
-
-terraform apply --auto-approve
-```
-### 监控和观测
-访问CloudWatch Container Insights
-打开CloudWatch控制台 -> Insights -> Container Insights
-
-
 # 在EKS上部署简单的Web应用
-### 1. 将应用打包成为Docker镜像
+## 将应用打包成为Docker镜像
 ```bash
 curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.34.0/install.sh | bash
 ```
@@ -120,30 +122,30 @@ docker build -t front-end .
 docker images
 ```
 
-### 2. 将应用镜像推送到ECR私有镜像仓库
+## 将应用镜像推送到ECR私有镜像仓库
 
-1.  登录ECR镜像仓库
+### 1.  登录ECR镜像仓库
 ```bash
 aws ecr get-login-password --region ${AWS_REGION} | docker login --username AWS --password-stdin ${ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com
 ```
-2. 创建名为front-end的镜像仓库
+### 2. 创建名为front-end的镜像仓库
 ```bash
 aws ecr create-repository \
     --repository-name front-end \
     --image-scanning-configuration scanOnPush=true \
     --region ${AWS_REGION}
 ```
-3. 给Docker打标签
+### 3. 给Docker打标签
 ```bash
 docker tag front-end:latest ${ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/front-end
 ```
 
-4. 将镜像push到镜像仓库
+### 4. 将镜像push到镜像仓库
 ```bash
 docker push ${ACCOUNT_ID}.dkr.ecr.ap-southeast-1.amazonaws.com/front-end
 ```
 
-5. 部署应用
+### 5. 部署应用
 在app目录下执行以下命令，它将生成deploy.yaml文件
 ```bash
 cat > deploy.yaml <<EOF
@@ -194,6 +196,7 @@ spec:
   type: NodePort # expose the service as NodePort type so that ALB can use it later.
 EOF
 ```
+
 通过以下命令创建`front-end`命名空间、`front-end`部署以及`front-end-service`服务
 
 ```bash
@@ -205,20 +208,46 @@ kubectl apply -f deploy.yaml
 kubectl get pods -n front-end
 ```
 
-### 3. 将应用曝露在互联网上
+## 将应用曝露在互联网上
 在上述步骤中，我们创建了名为front-end-service的服务，仅创建服务还不够，为了让互联网上的流量能够访问到我们刚才部署的服务，我们需要部署aws-load-balancer-controller.
 
-1. 添加Addon
-我们在main.tf文件的module "eks_blueprints_kubernetes_addons" 添加一下语句
-enable_aws_load_balancer_controller   = true
-并执行
+### 1. 部署aws-load-balancer-controller
+
+#### 1. 创建IAM Policy
 ```bash
-terraform init
-terraform apply --auto-approve
+curl -o iam_policy.json https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v2.4.4/docs/install/iam_policy.json
+
+aws iam create-policy \
+    --policy-name AWSLoadBalancerControllerIAMPolicy \
+    --policy-document file://iam_policy.json
+
+```
+#### 2. 创建IRSA
+```bash
+eksctl create iamserviceaccount \
+  --cluster=my-cluster \
+  --namespace=kube-system \
+  --name=aws-load-balancer-controller \
+  --role-name "AmazonEKSLoadBalancerControllerRole" \
+  --attach-policy-arn=arn:aws:iam::111122223333:policy/AWSLoadBalancerControllerIAMPolicy \
+  --approve
 ```
 
+#### 3. 通过Helm安装
+```bash
+helm repo add eks https://aws.github.io/eks-charts
 
-2. export 公共子网的子网ID, 这些子网ID在创建ingress的时候有用
+helm repo update
+
+
+helm install aws-load-balancer-controller eks/aws-load-balancer-controller \
+  -n kube-system \
+  --set clusterName=my-cluster \
+  --set serviceAccount.create=false \
+  --set serviceAccount.name=aws-load-balancer-controller 
+```
+
+### 2. export 公共子网的子网ID, 这些子网ID在创建ingress的时候有用
 ```bash
 export PUBLIC_SUBNETS_ID_A=$(aws ec2 describe-subnets --filters "Name=tag:Name,Values=web-app-on-eks-workshop-public-${AWS_REGION}a" | jq -r .Subnets[].SubnetId)
 export PUBLIC_SUBNETS_ID_B=$(aws ec2 describe-subnets --filters "Name=tag:Name,Values=web-app-on-eks-workshop-public-${AWS_REGION}b" | jq -r .Subnets[].SubnetId)
@@ -226,7 +255,7 @@ export PUBLIC_SUBNETS_ID_C=$(aws ec2 describe-subnets --filters "Name=tag:Name,V
 
 ```
 
-3. 创建ingress配置文件
+### 3. 创建ingress配置文件
 在app目录执行一下命令将会在app目录生成ingress.yaml文件
 ```bash
 cat > ingress.yaml <<EOF
@@ -253,7 +282,7 @@ spec:
                   number: 3000
 EOF
 ```
-4. 执行以下语句创建ingress对象
+### 4. 执行以下语句创建ingress对象
 ```bash
 kubectl apply -f ingress.yaml
 ```
@@ -264,19 +293,28 @@ kubectl apply -f ingress.yaml
 kubectl get ing -n front-end
 ```
 
-5. 打印出ALB的地址，通过该地址访问应用（域名生效需要时间，请耐心等待）
+### 5. 打印出ALB的地址，通过该地址访问应用（域名生效需要时间，请耐心等待）
 ```bash
 echo "http://$(kubectl get ing -n front-end --output=json | jq -r .items[].status.loadBalancer.ingress[].hostname)"
 ```
 
 # 体验EKS的自动扩展功能
-### Pod的自动扩展
-为了让HPA获取到Pod的指标实现自动扩容的目的，我们必须首先安装metrics server
+
+## 安装Metrics Server
+Metrics Server 监控容器内的资源使用情况，用于给HPA提供指标数据。
+部署Metrics Server：
 ```bash
-kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml
+kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/download/v0.5.0/components.yaml
 ```
 
-然后部署HPA
+等待1-2分钟后，确认metric-server的状态变为True：
+```bash
+kubectl get apiservice v1beta1.metrics.k8s.io -o json | jq '.status'
+```
+
+
+## 部署HPA
+创建HPA规则，当CPU超过10%的时候，HPA会扩容pod:
 ```bash
 cat > front-end-hpa.yaml <<EOF
 apiVersion: autoscaling/v1
@@ -301,17 +339,17 @@ kubectl apply -f front-end-hpa.yaml
 
 为了观测pod的变化以及hpa的变化，我们在一个Cloud9页面打开3个命令终端，分别输入一下命令：
 
-1. 监控Pod的数量变化
+### 1. 监控Pod的数量变化
 ```bash
 watch kubectl get pods -n front-end
 ```
 
-2. 监控HPA
+### 2. 监控HPA
 ```bash
 watch kubectl get hpa -n front-end
 ```
 
-3. 执行压力测试
+### 3. 执行压力测试
 ```bash
 ab -c 500 -n 30000 http://$(kubectl get ing -n front-end --output=json | jq -r .items[].status.loadBalancer.ingress[].hostname)/
 ```
@@ -320,25 +358,212 @@ ab -c 500 -n 30000 http://$(kubectl get ing -n front-end --output=json | jq -r .
 
 ![alt text](terminals.png "Title")
 
-### 安装Kapenter
-在上面的例子中，我们可以看到随着流量的持续加压，HPA会持续创建Pod，由于Node的数量有限，有些Pod处于Pending状态，这时候我们希望集群能够做到Node的自动扩展，Karpenter可以帮我们做到这一点。
+##  配置Cluster Autoscaler 
+在我们创建集群的时候，已经把ASG最大节点数量设置成了4：
+
+```bash
+aws autoscaling \
+    describe-auto-scaling-groups \
+    --query "AutoScalingGroups[? Tags[? (Key=='eks:cluster-name') && Value=='eks-lab']].[AutoScalingGroupName, MinSize, MaxSize,DesiredCapacity]" \
+    --output table  --region ${REGION}
+```
+在创建完成EKS节点组后，节点数量的最大值和最小值依然可以调整。这里我们先不进行操作
+
+##  创建IAM Role  
+由于Cluster Autoscaler要修改ASG，扩大或缩小机器的数量，所以它需要访问ASG对应的权限。在EKS里可以将IAM Role与service account绑定，这样权限控制的粒度可以精确到pod级别。
+
+先在集群上开启IRSA(IAM roles for service accounts):
+```bash
+eksctl utils associate-iam-oidc-provider \
+    --cluster eks-lab --region ${REGION} \
+    --approve
+```
+创建policy，用于给后面CA使用：
+```bash
+mkdir ~/environment/cluster-autoscaler
+
+cat <<EoF > ~/environment/cluster-autoscaler/k8s-asg-policy.json
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Action": [
+                "autoscaling:DescribeAutoScalingGroups",
+                "autoscaling:DescribeAutoScalingInstances",
+                "autoscaling:DescribeLaunchConfigurations",
+                "autoscaling:DescribeTags",
+                "autoscaling:SetDesiredCapacity",
+                "autoscaling:TerminateInstanceInAutoScalingGroup",
+                "ec2:DescribeLaunchTemplateVersions"
+            ],
+            "Resource": "*",
+            "Effect": "Allow"
+        }
+    ]
+}
+EoF
+
+aws iam create-policy   \
+  --policy-name k8s-asg-policy \
+  --policy-document file://~/environment/cluster-autoscaler/k8s-asg-policy.json
+
+```
+
+创建IRSA：
+```bash
+export ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+
+eksctl create iamserviceaccount \
+    --name cluster-autoscaler \
+    --namespace kube-system \
+    --cluster eks-lab --region ${REGION} \
+    --attach-policy-arn "arn:aws:iam::${ACCOUNT_ID}:policy/k8s-asg-policy" \
+    --approve \
+    --override-existing-serviceaccounts
+```
+查看service account，它在Annotations声明了与role的绑定：
+
+```bash
+~/environment $ kubectl -n kube-system describe sa cluster-autoscaler
+Name:                cluster-autoscaler
+Namespace:           kube-system
+Labels:              app.kubernetes.io/managed-by=eksctl
+Annotations:         eks.amazonaws.com/role-arn: arn:aws:iam::145197526627:role/eksctl-eks-lab-addon-iamserviceaccount-kube-Role1-1X1BNEKO0DP67
+Image pull secrets:  <none>
+Mountable secrets:   cluster-autoscaler-token-f49rd
+Tokens:              cluster-autoscaler-token-f49rd
+Events:              <none>
+```
 
 
+## 部署 Cluster Autoscaler (CA) 
+部署Cluster Autoscaler：
+```bash
+wget https://pingfan.s3.amazonaws.com/files/cluster-autoscaler-autodiscover.yaml
+
+kubectl apply -f cluster-autoscaler-autodiscover.yaml
+```
+
+为了防止CA把自己所在的node终止，我们先把这个特性关掉：
+```bash
+kubectl -n kube-system \
+    annotate deployment.apps/cluster-autoscaler \
+    cluster-autoscaler.kubernetes.io/safe-to-evict="false"
+```
+
+autoscaler的镜像版本需要和k8s版本一致，运行以下命令获取k8s版本，然后把CA的镜像更新：
+
+```bash
+# we need to retrieve the latest docker image available for our EKS version
+export K8S_VERSION=$(kubectl version --short | grep 'Server Version:' | sed 's/[^0-9.]*\([0-9.]*\).*/\1/' | cut -d. -f1,2)
+export AUTOSCALER_VERSION=$(curl -s "https://api.github.com/repos/kubernetes/autoscaler/releases" | grep '"tag_name":' | sed -s 's/.*-\([0-9][0-9\.]*\).*/\1/' | grep -m1 ${K8S_VERSION})
+
+kubectl -n kube-system \
+    set image deployment.apps/cluster-autoscaler \
+    cluster-autoscaler=k8s.gcr.io/k8s-artifacts-prod/autoscaling/cluster-autoscaler:v${AUTOSCALER_VERSION}
+```
+等待1分钟后，查看CA的deploy状态, 确保正常运行：
+
+```bash
+kubectl get deploy -n kube-system
+```
 
 
+#  EKS集群监控
+在本节我们将部署Prometheus + Grafana来监控EKS集群
 
 
+## 更新helm
+添加这两个工具的repo：
+```bash
+# add prometheus Helm repo
+helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+
+# add grafana Helm repo
+helm repo add grafana https://grafana.github.io/helm-charts
+```
+
+## 安装CSI 
+由于部署prometheus时需要使用额外的EBS来存储抓取的数据，所以先安装EBS CSI Driver。EBS CSI Driver让EKS能够以pv形式管理整个EBS的生命周期。
+
+### 1. 配置IAM Policy 
+ EBS CSI driver以pod形式部署在k8s里，它需要有访问EBS的权限(如创建、删除EBS)，所以我们第一步是创建policy和IRSA以给它授权
+
+ 创建IAM Policy：
+ ```bash
+export EBS_CSI_POLICY_NAME="Amazon_EBS_CSI_Driver"
+export AWS_REGION=`curl http://169.254.169.254/latest/dynamic/instance-identity/document|grep region|awk -F\" '{print $4}'`
+
+cd ~environment
+# download the IAM policy document
+curl -sSL -o ebs-csi-policy.json https://raw.githubusercontent.com/kubernetes-sigs/aws-ebs-csi-driver/master/docs/example-iam-policy.json
+
+# Create the IAM policy
+aws iam create-policy \
+  --region ${AWS_REGION} \
+  --policy-name ${EBS_CSI_POLICY_NAME} \
+  --policy-document file://${HOME}/environment/ebs-csi-policy.json
+
+# export the policy ARN as a variable
+export EBS_CSI_POLICY_ARN=$(aws --region ${AWS_REGION} iam list-policies --query 'Policies[?PolicyName==`'$EBS_CSI_POLICY_NAME'`].Arn' --output text)
+ ```
+
+### 2. 创建IRSA 
+
+ ```bash
+# Create a service account
+eksctl create iamserviceaccount \
+  --cluster eks-lab --region ${AWS_REGION} \
+  --name ebs-csi-controller-irsa \
+  --namespace kube-system \
+  --attach-policy-arn $EBS_CSI_POLICY_ARN \
+  --override-existing-serviceaccounts \
+  --approve
+```
+
+### 3. 部署Amazon EBS CSI Driver 
+使用 helm部署EBS CSI Driver：
+ ```bash
+# add the aws-ebs-csi-driver as a helm repo
+helm repo add aws-ebs-csi-driver https://kubernetes-sigs.github.io/aws-ebs-csi-driver
+
+helm upgrade --install aws-ebs-csi-driver \
+  --version=1.2.4 \
+  --namespace kube-system \
+  --set serviceAccount.controller.create=false \
+  --set serviceAccount.snapshot.create=false \
+  --set enableVolumeScheduling=true \
+  --set enableVolumeResizing=true \
+  --set enableVolumeSnapshot=true \
+  --set serviceAccount.snapshot.name=ebs-csi-controller-irsa \
+  --set serviceAccount.controller.name=ebs-csi-controller-irsa \
+  aws-ebs-csi-driver/aws-ebs-csi-driver
+
+kubectl -n kube-system rollout status deployment ebs-csi-controller
+```
+
+## 部署Prometheus 
+运行以下命令：
+ ```bash
+kubectl create namespace prometheus
+
+helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+
+helm install prometheus prometheus-community/prometheus \
+    --namespace prometheus \
+    --set alertmanager.persistentVolume.storageClass="gp2" \
+    --set server.persistentVolume.storageClass="gp2"
+```
+
+查看prometheus的状态：
+
+ ```bash
+kubectl get all -n prometheus
+```
+等待所有资源状态变为 Ready 或 Running：
 
 
-
-
-
-# 通过FluentBit收集K8s日志以及应用日志
-
-
-
-Loghub
-
+#EKS日志
 
 
 
