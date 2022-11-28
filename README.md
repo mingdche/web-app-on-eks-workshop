@@ -8,6 +8,20 @@
 
 # 准备工作
 ## Cloud9创建及配置
+在这一节，我们将在AWS帐号下创建Cloud9 IDE，作为后续实验的代码编辑工具
+### 1. 在AWS控制台上，搜索Cloud9服务
+![alt text](search_cloud9.png)
+### 2. 在Cloud9控制台，点击Create environment
+![alt text](create_environment.png)
+### 3. 输入环境的名称（如eks-lab）和描述
+![alt text](create_env_2.png)
+4. 点击进入下一步。在Configure settings步骤, 机型型号选择m5.large，然后点击Next step：
+![alt text](create_env_3.png)
+5. 进入下一步，并点击Create Environment创建Cloud9, 整个创建过程会持续大概2-3分钟
+
+## 创建IAM Role
+
+
 
 
 ## 安装相关软件
@@ -566,7 +580,7 @@ kubectl get all -n prometheus
 等待所有资源状态变为 Ready 或 Running：
 
 
-#EKS日志
+# EKS日志
 
 
 
