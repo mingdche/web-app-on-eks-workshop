@@ -19,7 +19,7 @@ cd web-app-on-eks-workshop
 ./init.sh
 ```
 
-以上命令为我们安装了以下软件：`kubectl`, `eksctl`, `helm`客户端，并安装了`Terraform` 并配置了后续脚本命令所需的环境变量 `AWS_REGION`，`ACCOUNT_ID` 
+以上命令为我们安装了以下软件：`kubectl`, `eksctl`, `helm`客户端，并配置了后续脚本命令所需的环境变量 `AWS_REGION`，`ACCOUNT_ID` 
 
 # 创建EKS集群
 ## 创建EKS集群
@@ -560,6 +560,9 @@ helm install prometheus prometheus-community/prometheus \
  ```bash
 kubectl get all -n prometheus
 ```
+
+![alt text](prometheus.png "Title")
+
 等待所有资源状态变为 Ready 或 Running：
 
 
