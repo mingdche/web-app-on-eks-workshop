@@ -15,14 +15,32 @@
 ![alt text](create_environment.png "Title")
 ### 3. 输入环境的名称（如eks-lab）和描述
 ![alt text](create_env_2.png "Title")
-4. 点击进入下一步。在Configure settings步骤, 机型型号选择m5.large，然后点击Next step：
+### 4. 点击进入下一步。在Configure settings步骤, 机型型号选择m5.large，然后点击Next step：
 ![alt text](create_env_3.png "Title")
-5. 进入下一步，并点击Create Environment创建Cloud9, 整个创建过程会持续大概2-3分钟
+### 5. 进入下一步，并点击Create Environment创建Cloud9, 整个创建过程会持续大概2-3分钟
 
 ## 创建IAM Role
+### 1. 进入IAM服务，在角色部分，点击创建角色
+![alt text](iam_role_1.png "Title")
+### 2. 选择EC2做为可信实体
+![alt text](iam_role_2.png "Title")
+### 3. 进入下一步，添加AdministratorAccess权限
+![alt text](iam_role_3.png "Title")
+### 4. 进入下一步，为角色命名为eks-workshop，并点击创建
+![alt text](iam_role_4.png "Title")
 
-
-
+## 将role绑定到Cloud9 
+### 1. 进入到Cloud 9页面，在Cloud9页面，点击Manage EC2 Instance
+![alt text](bind_role_1.png "Title")
+### 2. 会进入EC2页面，为Cloud9所在机器绑定上面创建的IAM角色
+![alt text](bind_role_2.png "Title")
+### 3. Cloud9默认使用自己的Role，我们需要先将其禁掉
+![alt text](bind_role_3.png "Title")
+### 3. 删除临时credentials
+```bash
+rm -vf ${HOME}/.aws/credentials
+```
+再执行aws sts get-caller-identity命令，控制台会输出上面创建的roleeks-workshop:
 
 ## 安装相关软件
 ```bash
