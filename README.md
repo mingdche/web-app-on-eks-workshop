@@ -34,15 +34,29 @@
 ![alt text](bind_role_1.png "Title")
 ### 2. 会进入EC2页面，为Cloud9所在机器绑定上面创建的IAM角色
 ![alt text](bind_role_2.png "Title")
-### 3. Cloud9默认使用自己的Role，我们需要先将其禁掉
+选择刚才所建的Role eks-workshop
 ![alt text](bind_role_3.png "Title")
-### 3. 删除临时credentials
+
+### 3. Cloud9默认使用自己的Role，我们需要先将其禁掉
+![alt text](remove_credentials.png "Title")
+
+### 4. 删除临时credentials
+在命令行控制台执行以下语句：
 ```bash
 rm -vf ${HOME}/.aws/credentials
 ```
-再执行aws sts get-caller-identity命令，控制台会输出上面创建的roleeks-workshop:
+
+再执行以下命令，
+```bash
+aws sts get-caller-identity
+```
+控制台会输出上面创建的role eks-workshop:
 
 ## 安装相关软件
+设置好Cloud9环境之后，点击"Open"进入Cloud9 IDE
+![alt text](cloud9_env.png "Title")
+通过Cloud9的Terminal执行以下命令：
+
 ```bash
 git clone https://github.com/mingdche/web-app-on-eks-workshop 
 
@@ -58,7 +72,7 @@ cd web-app-on-eks-workshop
 获取当前Region:
 ```bash
 
-REGION=`curl http://169.254.169.254/latest/dynamic/instance-identity/document|grep region|awk -F\" '{print $4}'`
+AWS_REGION=`curl http://169.254.169.254/latest/dynamic/instance-identity/document|grep region|awk -F\" '{print $4}'`
 
 ```
 使用以下命令，通过eksctl创建一个EKS集群：
@@ -70,7 +84,7 @@ kind: ClusterConfig
 
 metadata:
   name: eks-lab
-  region: ${REGION}
+  region: ${AWS_REGION}
 
 managedNodeGroups:
   - name: managed-ng-1
@@ -261,7 +275,7 @@ eksctl create iamserviceaccount \
   --namespace=kube-system \
   --name=aws-load-balancer-controller \
   --role-name "AmazonEKSLoadBalancerControllerRole" \
-  --attach-policy-arn=arn:aws:iam::111122223333:policy/AWSLoadBalancerControllerIAMPolicy \
+  --attach-policy-arn=arn:aws:iam::${ACCOUNT_ID}:policy/AWSLoadBalancerControllerIAMPolicy \
   --approve
 ```
 
@@ -457,14 +471,6 @@ eksctl create iamserviceaccount \
 
 ```bash
 ~/environment $ kubectl -n kube-system describe sa cluster-autoscaler
-Name:                cluster-autoscaler
-Namespace:           kube-system
-Labels:              app.kubernetes.io/managed-by=eksctl
-Annotations:         eks.amazonaws.com/role-arn: arn:aws:iam::145197526627:role/eksctl-eks-lab-addon-iamserviceaccount-kube-Role1-1X1BNEKO0DP67
-Image pull secrets:  <none>
-Mountable secrets:   cluster-autoscaler-token-f49rd
-Tokens:              cluster-autoscaler-token-f49rd
-Events:              <none>
 ```
 
 
