@@ -519,6 +519,8 @@ kubectl get deploy -n kube-system
 #  EKS集群监控
 在本节我们将部署Prometheus + Grafana来监控EKS集群
 
+![alt text](prometheus_dashboard.png "Title")
+
 ## 更新helm
 添加这两个工具的repo：
 ```bash
@@ -602,17 +604,241 @@ helm install prometheus prometheus-community/prometheus \
 ```
 
 查看prometheus的状态：
-
- ```bash
+![alt text](prometheus.png "Title")
+```bash
 kubectl get all -n prometheus
 ```
 
-![alt text](prometheus.png "Title")
 
 等待所有资源状态变为 Ready 或 Running：
 
 
+## 部署 GRAFANA 
+创建grafana.yaml，并部署grafana：
+
+```bash
+mkdir ${HOME}/environment/grafana
+
+cat << EoF > ${HOME}/environment/grafana/grafana.yaml
+datasources:
+  datasources.yaml:
+    apiVersion: 1
+    datasources:
+    - name: Prometheus
+      type: prometheus
+      url: http://prometheus-server.prometheus.svc.cluster.local
+      access: proxy
+      isDefault: true
+EoF
+kubectl create namespace grafana
+
+helm install grafana grafana/grafana \
+    --namespace grafana \
+    --set persistence.storageClassName="gp2" \
+    --set persistence.enabled=true \
+    --set adminPassword='EKS!sAWSome' \
+    --values ${HOME}/environment/grafana/grafana.yaml \
+    --set service.type=LoadBalancer
+```
+
+运行以下命令检查grafana是否正常运行：
+```bash
+watch kubectl get all -n grafana
+```
+等待1-2分钟后，CLB状态变成正常，此时可以在浏览器中访问它：
+```bash
+export ELB=$(kubectl get svc -n grafana grafana -o jsonpath='{.status.loadBalancer.ingress[0].hostname}')
+
+echo "http://$ELB"
+```
+
+打开UI后，需要输出用户名和密码，用户名是admin，密码如下：
+```bash
+kubectl get secret --namespace grafana grafana -o jsonpath="{.data.admin-password}" | base64 --decode ; echo
+```
+
+## Grafana Dashboards
+登录到 Grafana dashboard：
+![alt text](grafana_login.png "Title")
+
+点击+ Import，导入新的dashboard：
+![alt text](grafana_import_1.png "Title")
+
+输入 3119，点击 ‘Load’。选择Prometheus作为数据源，最后点击Import：
+![alt text](grafana_import_2.png "Title")
+
+效果如下：
+![alt text](grafana_dashboard.png "Title")
+
+保存该Dashboard。重复上面步骤，导入id为6417dashboard，该dashboard用于监控pod的状态：
+![alt text](grafana_dashboard_2.png "Title")
+
 # EKS日志
+在本节我们将在EKS部署一个常见的日志平台：
+
+    Fluent Bit：部署在worker节点，用于收集和处理日志
+
+    OpenSearch：AWS上的托管Elasticsearch服务
+    OpenSearch Dashboards : 类似Kibana
+
+Fluent Bit 将部署在每个worker节点上，收集日志统一发送到OpenSearch来集中查看和展示
+
+## 配置ISRA
+在EKS里可以将IAM Role与service account绑定，这样权限控制的粒度可以精确到pod级别。
+
+先在集群上开启IRSA(IAM roles for service accounts)（在auto scaling实验中已经开启IRSA，如果做完该实验则可以跳过）:
+
+```bash
+eksctl utils associate-iam-oidc-provider \
+    --cluster eks-lab --region ${AWS_REGION} \
+    --approve
+```
+### 创建Policy和IAM Role 
+由于FluentBit要连接到Elasticsearch集群发送日志，所以需要让FluentBit pod有对应的访问权限。先创建
+
+```bash
+mkdir ~/environment/logging/
+
+export ES_DOMAIN_NAME="eksworkshop-logging"
+export AWS_REGION=`curl http://169.254.169.254/latest/dynamic/instance-identity/document|grep region|awk -F\" '{print $4}'`
+export ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+
+cat <<EoF > ~/environment/logging/fluent-bit-policy.json
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Action": [
+                "es:ESHttp*"
+            ],
+            "Resource": "arn:aws:es:${AWS_REGION}:${ACCOUNT_ID}:domain/${ES_DOMAIN_NAME}",
+            "Effect": "Allow"
+        }
+    ]
+}
+EoF
+
+aws iam create-policy   \
+  --policy-name fluent-bit-policy \
+  --policy-document file://~/environment/logging/fluent-bit-policy.json
+```
+
+创建ISRA：
+```bash
+kubectl create namespace logging
+
+eksctl create iamserviceaccount \
+    --name fluent-bit \
+    --namespace logging \
+    --cluster eks-lab --region ${AWS_REGION} \
+    --attach-policy-arn "arn:aws:iam::${ACCOUNT_ID}:policy/fluent-bit-policy" \
+    --approve \
+    --override-existing-serviceaccounts
+
+```
+
+查看service account，它在Annotations声明了与role的绑定：
+```bash
+kubectl -n logging describe sa fluent-bit
+```
+
+
+## 创建opensearch集群
+接下我们创建一个OpenSearch集群，命名为eksworkshop-logging
+
+OpenSearch管理认证和授权有两种方式：
+
+    使用内置的数据库，里面存储着用户名和密码
+    集成AWS IAM， 在IAM里配置权限
+
+我们将创建一个能公网访问的OpenSearch集群，使用内置的数据库管理登录密码
+
+配置变量：
+```bash
+# name of our Amazon OpenSearch cluster
+export ES_DOMAIN_NAME="eksworkshop-logging"
+
+# Elasticsearch version
+export ES_VERSION="OpenSearch_1.0"
+
+# OpenSearch Dashboards admin user
+export ES_DOMAIN_USER="eksworkshop"
+
+export AWS_REGION=`curl http://169.254.169.254/latest/dynamic/instance-identity/document|grep region|awk -F\" '{print $4}'`
+
+# OpenSearch Dashboards admin password
+export ES_DOMAIN_PASSWORD="$(openssl rand -base64 12)_Ek1$"
+```
+
+创建OpenSearch集群：
+```bash
+# Download and update the template using the variables created previously
+curl -sS https://www.eksworkshop.com/intermediate/230_logging/deploy.files/es_domain.json \
+  | envsubst > ~/environment/logging/es_domain.json
+
+# Create the cluster
+aws opensearch create-domain \
+  --cli-input-json  file://~/environment/logging/es_domain.json
+```
+
+需要等十几分钟，OpenSearch集群状态才能变成active状态，在AWS控制台上能够实时查看它的状态，在集群变成active状态前，先不要进行下面的实验。
+
+## 绑定FluentBit的Role 
+将Fluent Bit role的ARN加到OpenSearch里，这样它有访问OpenSearch的权限：
+```bash
+# We need to retrieve the Fluent Bit Role ARN
+export FLUENTBIT_ROLE=$(eksctl get iamserviceaccount --cluster eks-lab --region ${AWS_REGION} --namespace logging -o json | jq '.[].status.roleARN' -r)
+
+# Get the Amazon OpenSearch Endpoint
+export ES_ENDPOINT=$(aws opensearch describe-domain --domain-name ${ES_DOMAIN_NAME} --output text --query "DomainStatus.Endpoint")
+
+# Update the Elasticsearch internal database
+curl -sS -u "${ES_DOMAIN_USER}:${ES_DOMAIN_PASSWORD}" \
+    -X PATCH \
+    https://${ES_ENDPOINT}/_opendistro/_security/api/rolesmapping/all_access?pretty \
+    -H 'Content-Type: application/json' \
+    -d '
+[
+  {
+    "op": "add", "path": "/backend_roles", "value": ["'${FLUENTBIT_ROLE}'"]
+  }
+]
+'
+```
+
+
+输出：
+```bash
+{
+  "status" : "OK",
+  "message" : "'all_access' updated."
+}
+```
+
+## 部署FluentBit 
+
+下载 fluentbit.yaml 并替换一些变量：
+```bash
+cd ~/environment/logging
+
+# get the Amazon OpenSearch Endpoint
+export ES_ENDPOINT=$(aws es describe-elasticsearch-domain --domain-name ${ES_DOMAIN_NAME} --output text --query "DomainStatus.Endpoint")
+
+curl -Ss https://www.eksworkshop.com/intermediate/230_logging/deploy.files/fluentbit.yaml \
+    | envsubst > ~/environment/logging/fluentbit.yaml
+
+```
+
+可以查看fluentbit.yaml里面声明了哪些k8s资源。它将以DaemonSet形式部署：
+```bash
+kubectl apply -f ~/environment/logging/fluentbit.yaml
+```
+
+等待所有pod变成running状态：
+
+
+
+
 
 
 
