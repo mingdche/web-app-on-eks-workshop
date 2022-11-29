@@ -835,10 +835,42 @@ kubectl apply -f ~/environment/logging/fluentbit.yaml
 ```
 
 等待所有pod变成running状态：
+```bash
+kubectl --namespace=logging get pods
+```
 
+## 查看OPENSEARCH DASHBOARDS
+使用以下URL和用户名/密码登录到OpenSearch Dashboards：
 
+```bash
+echo "OpenSearch Dashboards URL: https://${ES_ENDPOINT}/_dashboards/
+OpenSearch Dashboards user: ${ES_DOMAIN_USER}
+OpenSearch Dashboards password: ${ES_DOMAIN_PASSWORD}"
+```
 
+![alt text](open_search_login.png "Title")
 
+选择 Explore on my own：
+![alt text](open_search_explore_data.png "Title")
 
+选择使用自己专属的页面
+![alt text](open_search_private.png "Title")
 
+点击 OpenSearch Dashboards：
+![alt text](open_search_dashboards.png "Title")
 
+点击 Add your data：
+![alt text](open_search_add_your_data.png "Title")
+
+点击 Create index Pattern：
+![alt text](open_search_create_index.png "Title")
+
+使用 *fluent-bit*作为 Index pattern ， 点击 Next step
+![alt text](open_search_create_index_2.png "Title")
+
+选择 @timestamp 作为 Time filter， 最后点击 Create index pattern：
+![alt text](open_search_create_index_3.png "Title")
+
+选择Discover查看日志：
+![alt text](open_search_discover_1.png "Title")
+![alt text](open_search_discover_2.png "Title")
