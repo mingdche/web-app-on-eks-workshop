@@ -78,7 +78,7 @@ AWS_REGION=`curl http://169.254.169.254/latest/dynamic/instance-identity/documen
 使用以下命令，通过eksctl创建一个EKS集群：
 
 ```bash
-cat > /home/ec2-user/environment/eks-cluster.yaml <<EOF
+cat > eks-cluster.yaml <<EOF
 apiVersion: eksctl.io/v1alpha5
 kind: ClusterConfig
 
@@ -301,7 +301,7 @@ aws ec2 describe-subnets --filters "Name=tag:Name,Values=eksctl-eks-lab-cluster/
 ```
 将上面的Subnet Id保存到2个或3个变量中，以逗号分隔
 ```bash
-export PUBLIC_SUBNETS_IDS = <将上面的Subnet Id保存到2个或3个变量中，以逗号分隔>  
+export PUBLIC_SUBNETS_IDS=<将上面的Subnet Id保存到2个或3个变量中，以逗号分隔>  
 ```
 
 
@@ -319,7 +319,7 @@ metadata:
     kubernetes.io/ingress.class: alb
     alb.ingress.kubernetes.io/scheme: internet-facing
     alb.ingress.kubernetes.io/target-type: ip # using IP routing policy of ALB
-    alb.ingress.kubernetes.io/subnets: $PUBLIC_SUBNETS_IDS# specifying the public subnets id
+    alb.ingress.kubernetes.io/subnets: $PUBLIC_SUBNETS_IDS
 spec:
   rules:
     - http:
@@ -336,6 +336,11 @@ EOF
 ### 4. 执行以下语句创建ingress对象
 ```bash
 kubectl apply -f ingress.yaml
+```
+
+查看Ingress对象状态
+```bash
+kubectl describe ingress ingress-front-end -n front-end
 ```
 
 执行下面语句将显示我们创建的ingress对象
@@ -416,7 +421,7 @@ ab -c 500 -n 30000 http://$(kubectl get ing -n front-end --output=json | jq -r .
 aws autoscaling \
     describe-auto-scaling-groups \
     --query "AutoScalingGroups[? Tags[? (Key=='eks:cluster-name') && Value=='eks-lab']].[AutoScalingGroupName, MinSize, MaxSize,DesiredCapacity]" \
-    --output table  --region ${REGION}
+    --output table  --region ${AWS_REGION}
 ```
 在创建完成EKS节点组后，节点数量的最大值和最小值依然可以调整。这里我们先不进行操作
 
@@ -426,7 +431,7 @@ aws autoscaling \
 先在集群上开启IRSA(IAM roles for service accounts):
 ```bash
 eksctl utils associate-iam-oidc-provider \
-    --cluster eks-lab --region ${REGION} \
+    --cluster eks-lab --region ${AWS_REGION} \
     --approve
 ```
 创建policy，用于给后面CA使用：
@@ -453,12 +458,14 @@ cat <<EoF > ~/environment/cluster-autoscaler/k8s-asg-policy.json
     ]
 }
 EoF
+```
 
+```bash
 aws iam create-policy   \
   --policy-name k8s-asg-policy \
   --policy-document file://~/environment/cluster-autoscaler/k8s-asg-policy.json
-
 ```
+
 
 创建IRSA：
 ```bash
@@ -467,17 +474,15 @@ export ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
 eksctl create iamserviceaccount \
     --name cluster-autoscaler \
     --namespace kube-system \
-    --cluster eks-lab --region ${REGION} \
+    --cluster eks-lab --region ${AWS_REGION} \
     --attach-policy-arn "arn:aws:iam::${ACCOUNT_ID}:policy/k8s-asg-policy" \
     --approve \
     --override-existing-serviceaccounts
 ```
 查看service account，它在Annotations声明了与role的绑定：
-
 ```bash
-~/environment $ kubectl -n kube-system describe sa cluster-autoscaler
+kubectl -n kube-system describe sa cluster-autoscaler
 ```
-
 
 ## 部署 Cluster Autoscaler (CA) 
 部署Cluster Autoscaler：
@@ -511,10 +516,8 @@ kubectl -n kube-system \
 kubectl get deploy -n kube-system
 ```
 
-
 #  EKS集群监控
 在本节我们将部署Prometheus + Grafana来监控EKS集群
-
 
 ## 更新helm
 添加这两个工具的repo：
