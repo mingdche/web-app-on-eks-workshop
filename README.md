@@ -295,15 +295,18 @@ helm install aws-load-balancer-controller eks/aws-load-balancer-controller \
   --set serviceAccount.name=aws-load-balancer-controller 
 ```
 
-### 2. export 公共子网的子网ID, 这些子网ID在创建ingress的时候有用
+### 2. 打印出公共子网的子网ID, 这些子网ID在创建ingress的时候有用
 ```bash
-export PUBLIC_SUBNETS_ID_A=$(aws ec2 describe-subnets --filters "Name=tag:Name,Values=web-app-on-eks-workshop-public-${AWS_REGION}a" | jq -r .Subnets[].SubnetId)
-export PUBLIC_SUBNETS_ID_B=$(aws ec2 describe-subnets --filters "Name=tag:Name,Values=web-app-on-eks-workshop-public-${AWS_REGION}b" | jq -r .Subnets[].SubnetId)
-export PUBLIC_SUBNETS_ID_C=$(aws ec2 describe-subnets --filters "Name=tag:Name,Values=web-app-on-eks-workshop-public-${AWS_REGION}c" | jq -r .Subnets[].SubnetId)
-
+aws ec2 describe-subnets --filters "Name=tag:Name,Values=eksctl-eks-lab-cluster/SubnetPublic*"| jq -r .Subnets[].SubnetId  
+```
+将上面的Subnet Id保存到2个或3个变量中，以逗号分隔
+```bash
+export PUBLIC_SUBNETS_IDS = <将上面的Subnet Id保存到2个或3个变量中，以逗号分隔>  
 ```
 
+
 ### 3. 创建ingress配置文件
+
 在app目录执行一下命令将会在app目录生成ingress.yaml文件
 ```bash
 cat > ingress.yaml <<EOF
@@ -316,7 +319,7 @@ metadata:
     kubernetes.io/ingress.class: alb
     alb.ingress.kubernetes.io/scheme: internet-facing
     alb.ingress.kubernetes.io/target-type: ip # using IP routing policy of ALB
-    alb.ingress.kubernetes.io/subnets: $PUBLIC_SUBNETS_ID_A, $PUBLIC_SUBNETS_ID_B, $PUBLIC_SUBNETS_ID_C # specifying the public subnets id
+    alb.ingress.kubernetes.io/subnets: $PUBLIC_SUBNETS_IDS# specifying the public subnets id
 spec:
   rules:
     - http:
