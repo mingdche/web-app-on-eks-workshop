@@ -523,7 +523,7 @@ watch kubectl get nodes
 ```
 然后再一次执行压力测试
 ```bash
-ab -c 500 -n 30000 http://$(kubectl get ing -n front-end --output=json | jq -r .items[].status.loadBalancer.ingress[].hostname)/
+ab -c 500 -n 130000 http://$(kubectl get ing -n front-end --output=json | jq -r .items[].status.loadBalancer.ingress[].hostname)/
 ```
 观测Node节点变化情况
 
