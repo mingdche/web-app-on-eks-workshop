@@ -580,9 +580,10 @@ eksctl create iamserviceaccount \
   --cluster eks-lab --region ${AWS_REGION} \
   --name ebs-csi-controller-irsa \
   --namespace kube-system \
-  --attach-policy-arn ${EBS_CSI_POLICY_ARN} \
+  --attach-policy-arn $EBS_CSI_POLICY_ARN \
   --override-existing-serviceaccounts \
   --approve
+
 ```
 
 ### 3. 部署Amazon EBS CSI Driver 
