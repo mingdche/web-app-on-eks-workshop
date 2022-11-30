@@ -554,7 +554,7 @@ export EBS_CSI_POLICY_NAME="Amazon_EBS_CSI_Driver"
 export AWS_REGION=`curl http://169.254.169.254/latest/dynamic/instance-identity/document|grep region|awk -F\" '{print $4}'`
 ```
 ```bash
-cd ~environment
+cd ~/environment
 # download the IAM policy document
 curl -sSL -o ebs-csi-policy.json https://raw.githubusercontent.com/kubernetes-sigs/aws-ebs-csi-driver/master/docs/example-iam-policy.json
 ```
