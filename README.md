@@ -270,7 +270,7 @@ aws iam create-policy \
 ```
 #### 2. 创建IRSA
 ```bash
-eksctl utils associate-iam-oidc-provider --region=us-east-1 --cluster=eks-lab --approve
+eksctl utils associate-iam-oidc-provider --region=${AWS_REGION} --cluster=eks-lab --approve
 
 eksctl create iamserviceaccount \
   --cluster=eks-lab \
@@ -676,7 +676,7 @@ kubectl get secret --namespace grafana grafana -o jsonpath="{.data.admin-passwor
 效果如下：
 ![alt text](grafana_dashboard.png "Title")
 
-保存该Dashboard。重复上面步骤，导入id为6417dashboard，该dashboard用于监控pod的状态：
+保存该Dashboard。重复上面步骤，导入Id为6417的Dashboard，该Dashboard用于监控Pod的状态：
 ![alt text](grafana_dashboard_2.png "Title")
 
 # EKS日志
@@ -784,7 +784,7 @@ aws opensearch create-domain \
   --cli-input-json  file://~/environment/logging/es_domain.json
 ```
 
-需要等十几分钟，OpenSearch集群状态才能变成active状态，在AWS控制台上能够实时查看它的状态，在集群变成active状态前，先不要进行下面的实验。
+需要等十几分钟，OpenSearch集群状态才能变成active状态，在AWS控制台上能够实时查看它的状态，在集群变成active状态前，***先不要进行下面的实验***。
 
 ## 绑定FluentBit的Role 
 将Fluent Bit role的ARN加到OpenSearch里，这样它有访问OpenSearch的权限：
@@ -856,8 +856,10 @@ OpenSearch Dashboards password: ${ES_DOMAIN_PASSWORD}"
 选择 Explore on my own：
 ![alt text](open_search_explore_data.png "Title")
 
+
 选择使用自己专属的页面
 ![alt text](open_search_private.png "Title")
+
 
 点击 OpenSearch Dashboards：
 ![alt text](open_search_dashboards.png "Title")
