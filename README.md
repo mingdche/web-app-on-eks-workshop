@@ -170,6 +170,9 @@ docker images
 
 ### 1.  登录ECR镜像仓库
 ```bash
+AWS_REGION=$(curl --silent http://169.254.169.254/latest/dynamic/instance-identity/document | jq -r .region)
+ACCOUNT_ID=$(aws sts get-caller-identity --output text --query Account)
+
 aws ecr get-login-password --region ${AWS_REGION} | docker login --username AWS --password-stdin ${ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com
 ```
 ### 2. 创建名为front-end的镜像仓库
@@ -405,7 +408,7 @@ watch kubectl get hpa -n front-end
 
 ### 3. 执行压力测试
 ```bash
-ab -c 500 -n 130000 http://$(kubectl get ing -n front-end --output=json | jq -r .items[].status.loadBalancer.ingress[].hostname)/
+ab -c 500 -n 30000 http://$(kubectl get ing -n front-end --output=json | jq -r .items[].status.loadBalancer.ingress[].hostname)/
 ```
 
 可以看出随着流量的增加，HPA的指标也在变化，随着HPA中CPU利用率的增加，Pod的数量也在增加
@@ -513,6 +516,16 @@ kubectl -n kube-system \
 ```bash
 kubectl get deploy -n kube-system
 ```
+
+现在我们来看看Node节点的扩展情况
+```bash
+watch kubectl get nodes
+```
+然后再一次执行压力测试
+```bash
+ab -c 500 -n 30000 http://$(kubectl get ing -n front-end --output=json | jq -r .items[].status.loadBalancer.ingress[].hostname)/
+```
+观测Node节点变化情况
 
 #  EKS集群监控
 在本节我们将部署Prometheus + Grafana来监控EKS集群
