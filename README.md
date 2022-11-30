@@ -569,7 +569,7 @@ aws iam create-policy \
 
 # export the policy ARN as a variable
 ```bash
-export EBS_CSI_POLICY_ARN=$(aws --region ${AWS_REGION} iam list-policies --query 'Policies[?PolicyName==`'$EBS_CSI_POLICY_NAME'`].Arn' --output text)
+export EBS_CSI_POLICY_ARN=$(aws --region ${AWS_REGION} iam list-policies --query 'Policies[?PolicyName==`'${EBS_CSI_POLICY_NAME}'`].Arn' --output text)
  ```
 
 ### 2. 创建IRSA 
@@ -580,7 +580,7 @@ eksctl create iamserviceaccount \
   --cluster eks-lab --region ${AWS_REGION} \
   --name ebs-csi-controller-irsa \
   --namespace kube-system \
-  --attach-policy-arn $EBS_CSI_POLICY_ARN \
+  --attach-policy-arn ${EBS_CSI_POLICY_ARN} \
   --override-existing-serviceaccounts \
   --approve
 ```
