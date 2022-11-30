@@ -407,7 +407,7 @@ watch kubectl get hpa -n front-end
 
 ### 3. 执行压力测试
 ```bash
-ab -c 500 -n 30000 http://$(kubectl get ing -n front-end --output=json | jq -r .items[].status.loadBalancer.ingress[].hostname)/
+ab -c 500 -n 130000 http://$(kubectl get ing -n front-end --output=json | jq -r .items[].status.loadBalancer.ingress[].hostname)/
 ```
 
 可以看出随着流量的增加，HPA的指标也在变化，随着HPA中CPU利用率的增加，Pod的数量也在增加
