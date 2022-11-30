@@ -552,19 +552,23 @@ helm repo add grafana https://grafana.github.io/helm-charts
  ```bash
 export EBS_CSI_POLICY_NAME="Amazon_EBS_CSI_Driver"
 export AWS_REGION=`curl http://169.254.169.254/latest/dynamic/instance-identity/document|grep region|awk -F\" '{print $4}'`
-
-
+```
+```bash
 cd ~environment
 # download the IAM policy document
 curl -sSL -o ebs-csi-policy.json https://raw.githubusercontent.com/kubernetes-sigs/aws-ebs-csi-driver/master/docs/example-iam-policy.json
+```
 
+```bash
 # Create the IAM policy
 aws iam create-policy \
   --region ${AWS_REGION} \
   --policy-name ${EBS_CSI_POLICY_NAME} \
   --policy-document file://${HOME}/environment/ebs-csi-policy.json
+```
 
 # export the policy ARN as a variable
+```bash
 export EBS_CSI_POLICY_ARN=$(aws --region ${AWS_REGION} iam list-policies --query 'Policies[?PolicyName==`'$EBS_CSI_POLICY_NAME'`].Arn' --output text)
  ```
 
@@ -598,7 +602,9 @@ helm upgrade --install aws-ebs-csi-driver \
   --set serviceAccount.snapshot.name=ebs-csi-controller-irsa \
   --set serviceAccount.controller.name=ebs-csi-controller-irsa \
   aws-ebs-csi-driver/aws-ebs-csi-driver
+```
 
+```bash
 kubectl -n kube-system rollout status deployment ebs-csi-controller
 ```
 
