@@ -605,13 +605,13 @@ helm install prometheus prometheus-community/prometheus \
 ```
 
 查看prometheus的状态：
-![alt text](prometheus.png "Title")
 ```bash
 kubectl get all -n prometheus
 ```
+![alt text](prometheus.png "Title")
 
 
-等待所有资源状态变为 Ready 或 Running：
+等待所有资源状态变为 Ready 或 Running
 
 
 ## 部署 GRAFANA 
