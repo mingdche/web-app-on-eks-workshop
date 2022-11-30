@@ -189,7 +189,7 @@ docker tag front-end:latest ${ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/fr
 docker push ${ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/front-end:latest
 ```
 
-### 5. 部署应用
+### 5. 部署应用（等EKS集群部署完成才能执行本操作）
 在app目录下执行以下命令，它将生成deploy.yaml文件
 ```bash
 cat > deploy.yaml <<EOF
