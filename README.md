@@ -53,9 +53,6 @@ aws sts get-caller-identity
 控制台会输出上面创建的role eks-workshop:
 
 ## 安装相关软件
-设置好Cloud9环境之后，点击"Open"进入Cloud9 IDE
-![alt text](cloud9_env.png "Title")
-通过Cloud9的Terminal执行以下命令：
 
 ```bash
 git clone https://github.com/mingdche/web-app-on-eks-workshop 
