@@ -542,6 +542,7 @@ helm repo add grafana https://grafana.github.io/helm-charts
 export EBS_CSI_POLICY_NAME="Amazon_EBS_CSI_Driver"
 export AWS_REGION=`curl http://169.254.169.254/latest/dynamic/instance-identity/document|grep region|awk -F\" '{print $4}'`
 
+
 cd ~environment
 # download the IAM policy document
 curl -sSL -o ebs-csi-policy.json https://raw.githubusercontent.com/kubernetes-sigs/aws-ebs-csi-driver/master/docs/example-iam-policy.json
@@ -630,8 +631,13 @@ datasources:
       access: proxy
       isDefault: true
 EoF
+```
+创建grafana命名空间
+```bash
 kubectl create namespace grafana
-
+```
+安装grafana
+```bash
 helm install grafana grafana/grafana \
     --namespace grafana \
     --set persistence.storageClassName="gp2" \
@@ -645,7 +651,7 @@ helm install grafana grafana/grafana \
 ```bash
 watch kubectl get all -n grafana
 ```
-等待1-2分钟后，CLB状态变成正常，此时可以在浏览器中访问它：
+等待1-2分钟后，ELB状态变成正常，此时可以在浏览器中访问它：
 ```bash
 export ELB=$(kubectl get svc -n grafana grafana -o jsonpath='{.status.loadBalancer.ingress[0].hostname}')
 
@@ -675,11 +681,9 @@ kubectl get secret --namespace grafana grafana -o jsonpath="{.data.admin-passwor
 
 # EKS日志
 在本节我们将在EKS部署一个常见的日志平台：
-
-    Fluent Bit：部署在worker节点，用于收集和处理日志
-
-    OpenSearch：AWS上的托管Elasticsearch服务
-    OpenSearch Dashboards : 类似Kibana
+Fluent Bit：部署在worker节点，用于收集和处理日志
+OpenSearch：AWS上的托管Elasticsearch服务
+OpenSearch Dashboards : 类似Kibana
 
 Fluent Bit 将部署在每个worker节点上，收集日志统一发送到OpenSearch来集中查看和展示
 
@@ -747,9 +751,8 @@ kubectl -n logging describe sa fluent-bit
 接下我们创建一个OpenSearch集群，命名为eksworkshop-logging
 
 OpenSearch管理认证和授权有两种方式：
-
-    使用内置的数据库，里面存储着用户名和密码
-    集成AWS IAM， 在IAM里配置权限
+1. 使用内置的数据库，里面存储着用户名和密码
+2. 集成AWS IAM， 在IAM里配置权限
 
 我们将创建一个能公网访问的OpenSearch集群，使用内置的数据库管理登录密码
 
